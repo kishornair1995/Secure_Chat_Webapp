@@ -49,4 +49,12 @@ def decrypt_message(key, data):
     nonce = data[:12]
     ciphertext = data[12:]
     chacha = ChaCha20Poly1305(key)
-    return chacha.decrypt(nonce, ciphertext, None).decode()
+    plaintext = chacha.decrypt(nonce, ciphertext, None).decode()
+    
+    # To see the decryption
+    print("\n Decrypting Message:")
+    print(f"Nonce: {nonce.hex()}")
+    print(f"Ciphertext: {ciphertext.hex()}")
+    print(f"Plaintext: {plaintext}\n")
+    
+    return plaintext
