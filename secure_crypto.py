@@ -34,7 +34,16 @@ def encrypt_message(key, plaintext):
     nonce = os.urandom(12)
     chacha = ChaCha20Poly1305(key)
     ciphertext = chacha.encrypt(nonce, plaintext.encode(), None)
-    return nonce + ciphertext
+    encrypted_data = nonce + ciphertext
+    
+    # To see the encryption
+    print("\n Encrypting Message:")
+    print(f"Plaintext: {plaintext}")
+    print(f"Nonce: {nonce.hex()}")
+    print(f"Ciphertext: {ciphertext.hex()}")
+    print(f"Final Encrypted Data: {encrypted_data.hex()}\n")
+    
+    return encrypted_data
 
 def decrypt_message(key, data):
     nonce = data[:12]
