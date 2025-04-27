@@ -3,49 +3,73 @@ from threading import Thread
 import secure_crypto as crypto
 
 client_sock = []
-public_keys = []
-
-HOST = gethostbyname(gethostname())
-PORT = 42000
+shared_keys = {}
 BUFFER_SIZE = 4096
+
+HOST = gethostbyname(gethostname())  # dynamically get local IP address
+PORT = 42000         # server PORT (as per your latest setup)
 ADDRESS = (HOST, PORT)
 
 SERVER = socket(AF_INET, SOCK_STREAM)
+SERVER.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)  # Allow reusing the port immediately
 SERVER.bind(ADDRESS)
-SERVER.listen(5)
+SERVER.listen(10)
 
-print(f"[SERVER STARTED] Listening on {HOST}:{PORT}")
-print("[WAITING] Waiting for 2 clients to connect...")
+print(f"\n[SERVER STARTED] Listening on {HOST}:{PORT}")
+print("[WAITING] Waiting for clients to connect...\n")
 
-# Accept clients until 2 are ready
-while len(client_sock) < 2:
-    client, addr = SERVER.accept()
-    print(f"[CONNECTED] Client {len(client_sock)+1} from {addr}")
-    client_sock.append(client)
-    pub_key = client.recv(BUFFER_SIZE)
-    public_keys.append(pub_key)
-    print(f"[KEY RECEIVED] from Client {len(client_sock)}")
+def handle_client(client, addr):
+    try:
+        print(f"[NEW CONNECTION] Client from {addr} connected.")
 
-# Exchange public keys
-client_sock[0].send(public_keys[1])
-client_sock[1].send(public_keys[0])
-print("[KEY EXCHANGE COMPLETE]")
+        # Key exchange
+        pub_key = client.recv(BUFFER_SIZE)
+        peer_public_key = crypto.deserialize_public_key(pub_key)
+        private_key, public_key = crypto.generate_dh_key_pair()
+        client.send(crypto.serialize_public_key(public_key))
+        shared_key = crypto.derive_shared_key(private_key, peer_public_key)
+        shared_keys[client] = shared_key
+        client_sock.append(client)
 
-# Start forwarding messages
-def forward_messages(sender_idx):
-    receiver_idx = 1 - sender_idx
-    while True:
-        try:
-            msg = client_sock[sender_idx].recv(BUFFER_SIZE)
-            if not msg:
-                print(f"[DISCONNECT] Client {sender_idx + 1} disconnected.")
+        # Send welcome message
+        welcome_message = "[SERVER] Welcome to the Secure Chat!"
+        encrypted = crypto.encrypt_message(shared_key, welcome_message)
+        client.send(encrypted)
+
+        while True:
+            try:
+                msg = client.recv(BUFFER_SIZE)
+                if not msg:
+                    break
+
+                decrypted = crypto.decrypt_message(shared_keys[client], msg)
+                print(f"[MESSAGE] {decrypted}")
+                broadcast(decrypted, sender=client)
+
+            except Exception as e:
+                print(f"[ERROR receiving/decrypting message from {addr}]: {e}")
                 break
-            print(f"[FORWARD] Client {sender_idx + 1} → Client {receiver_idx + 1}")
-            client_sock[receiver_idx].send(msg)
-        except Exception as e:
-            print(f"[ERROR] Forwarding failed: {e}")
-            break
 
-Thread(target=forward_messages, args=(0,), daemon=True).start()
-Thread(target=forward_messages, args=(1,), daemon=True).start()
-print("[MESSAGE RELAY STARTED]")
+    except Exception as e:
+        print(f"[ERROR] {e}")
+
+    finally:
+        if client in client_sock:
+            client_sock.remove(client)
+        if client in shared_keys:
+            del shared_keys[client]
+        client.close()
+        print(f"[DISCONNECTED] {addr}")
+
+def broadcast(message, sender):
+    for client in client_sock:
+        if client != sender:
+            try:
+                encrypted = crypto.encrypt_message(shared_keys[client], message)
+                client.send(encrypted)
+            except Exception as e:
+                print(f"[ERROR sending to client]: {e}")
+
+while True:
+    client, addr = SERVER.accept()
+    Thread(target=handle_client, args=(client, addr), daemon=True).start()
