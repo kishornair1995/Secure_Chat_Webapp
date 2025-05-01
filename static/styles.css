@@ -1,0 +1,78 @@
+:root {
+    --primary-blue: #007AFF;
+    --bubble-gray: #F2F2F7;
+    --timestamp-gray: #8E8E93;
+    --background-dark: #121212;
+}
+
+body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--background-dark);
+    color: white;
+    height: 100vh;
+    display: flex;
+}
+
+.chat-container {
+    display: flex;
+    flex: 1;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.sidebar {
+    width: 280px;
+    background: #1F1F1F;
+    border-right: 1px solid #333;
+    padding: 20px;
+}
+
+.message-bubble {
+    max-width: 70%;
+    padding: 12px 16px;
+    border-radius: 18px;
+    margin: 8px 0;
+    position: relative;
+}
+
+.outgoing {
+    background: #007AFF;
+    color: white;
+    margin-left: auto;
+}
+
+.incoming {
+    background: #F2F2F7;
+    color: black;
+}
+
+.timestamp {
+    font-size: 0.75rem;
+    color: var(--timestamp-gray);
+    text-align: right;
+    margin-top: 4px;
+}
+
+.read-receipt {
+    position: absolute;
+    bottom: -18px;
+    right: 5px;
+    color: var(--timestamp-gray);
+    font-size: 0.75rem;
+}
+
+#messages {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+}
+
+#messageInput {
+    width: calc(100% - 90px);
+    padding: 12px;
+    border-radius: 20px;
+    border: 1px solid #333;
+    background: #2A2A2A;
+    color: white;
+}
