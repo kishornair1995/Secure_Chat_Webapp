@@ -1,7 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, session
 from flask_socketio import SocketIO, emit
 import socket as sock
-import base64
 
 app = Flask(__name__)
 app.secret_key = 'supersecretkey'
@@ -15,6 +14,8 @@ public_keys = {}     # sid -> public key (JWK string)
 def login():
     if request.method == 'POST':
         session['name'] = request.form['name']
+        session['server_ip'] = request.form['server_ip']
+        session['server_port'] = request.form['server_port']
         return redirect(url_for('chat'))
     return render_template('login.html')
 
@@ -27,6 +28,8 @@ def chat():
 @socketio.on('connect')
 def handle_connect():
     print(f"[CONNECTED] {request.sid}")
+    # Send the list of online users to the newly connected client
+    emit('users_updated', list(clients.values()), broadcast=True)
 
 @socketio.on('register')
 def handle_register(data):
@@ -36,29 +39,63 @@ def handle_register(data):
     print(f"[REGISTER] {data['name']} ({request.sid})")
     emit('users_updated', list(clients.values()), broadcast=True)
 
+@socketio.on('exchange_keys')
+def handle_key_exchange(target_user):
+    if target_user in sockets_by_name:
+        emit('peer_key', {
+            'user': clients[request.sid],
+            'key': public_keys[request.sid]
+        }, room=sockets_by_name[target_user])
+
+# @socketio.on('send_message')
+# def handle_message(data):
+#     print(f"[ENCRYPTION] Encrypted message from {clients[request.sid]}: {str(data['ciphertext'])[:60]}...")
+#     emit('message', {
+#         'sender': clients[request.sid],
+#         'ciphertext': data['ciphertext'],
+#         'nonce': data.get('nonce', '')
+#     }, room=sockets_by_name[data['recipient']])
+
 @socketio.on('send_message')
-def handle_send_message(data):
-    sender = session.get('name')
+def handle_message(data):
+    sender = clients[request.sid]
     recipient = data.get('recipient')
     ciphertext = data.get('ciphertext')
     nonce = data.get('nonce')
     plaintext = data.get('plaintext')
     log = data.get('log', {})
 
-    print("\n[ENCRYPTION] Encrypted message from {}:".format(sender))
-    print("- Plaintext:", log.get('plaintext'))
-    print("- Nonce:", log.get('nonce'))
-    print("- Ciphertext:", log.get('ciphertext'))
-    print("- Final Encrypted Data:", log.get('finalData'), "\n")
+    # Log encryption (sent from client)
+    print("\nEncrypting Message:")
+    print("Plaintext:", log.get('plaintext'))
+    print("Nonce:", log.get('nonce'))
+    print("Ciphertext:", log.get('ciphertext'))
+    print("Final Encrypted Data:", log.get('finalData'), "\n")
 
-    if recipient in connected_users:
-        recipient_sid = connected_users[recipient]['sid']
+    # Simulated server-side decryption log
+    print("Decrypting Message:")
+    print("Nonce:", nonce)
+    print("Ciphertext:", ciphertext)
+    print("Plaintext:", plaintext)
+    print(f"[MESSAGE] {sender}: {plaintext}\n")
+
+    # Send to recipient
+    recipient_sid = sockets_by_name.get(recipient)
+    if recipient_sid:
         emit('message', {
             'sender': sender,
             'ciphertext': ciphertext,
             'nonce': nonce
         }, room=recipient_sid)
 
+        # Echo back to sender
+        emit('message', {
+            'sender': sender,
+            'ciphertext': ciphertext,
+            'nonce': nonce
+        }, room=request.sid)
+    else:
+        print(f"[ERROR] {recipient} is not online.")
 
 
 @socketio.on('disconnect')

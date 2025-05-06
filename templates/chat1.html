@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Secure Chat - {{ name }}</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <div class="chat-container">
+        <div class="sidebar">
+            <h3>Online Users</h3>
+            <ul id="userList"></ul>
+        </div>
+        
+        <div class="main-chat">
+            <div id="messages"></div>
+            <div class="input-area">
+                <input id="messageInput" placeholder="Message...">
+                <button id="sendButton">Send</button>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
+    <script src="/static/chat.js"></script>
+</body>
+</html>
